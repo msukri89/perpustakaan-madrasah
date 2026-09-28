@@ -1493,15 +1493,29 @@ function createPerspectiveCrop() {
         { alpha: false }
       );
 
+    /*
+     * Kita membutuhkan transformasi KEBALIKAN:
+     *
+     * output (persegi panjang hasil)
+     *              ↓
+     * source (4 sudut foto asli)
+     *
+     * Sebelumnya transformasi dibuat dari
+     * source -> output tetapi kemudian dipakai
+     * seolah-olah output -> source. Akibatnya
+     * sampling gambar salah dan hasil foto bisa
+     * hanya mengambil sebagian area, misalnya
+     * judul hanya terbaca "KISA".
+     */
     const homography =
       solveHomography(
-        sourceCorners,
         [
           { x: 0, y: 0 },
           { x: outputWidth, y: 0 },
           { x: outputWidth, y: outputHeight },
           { x: 0, y: outputHeight }
-        ]
+        ],
+        sourceCorners
       );
 
     const imageData =

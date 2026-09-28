@@ -114,10 +114,16 @@ async function startScannerCamera() {
             ideal: scannerFacingMode
           },
           width: {
-            ideal: 1920
+            ideal: 1280,
+            max: 1920
           },
           height: {
-            ideal: 1080
+            ideal: 720,
+            max: 1080
+          },
+          frameRate: {
+            ideal: 24,
+            max: 30
           }
         },
         audio: false

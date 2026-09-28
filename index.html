@@ -151,6 +151,44 @@
     </div>
   </div>
 
+
+  <div id="photoEditorModal" class="modal-backdrop photo-editor-backdrop" hidden>
+    <div class="photo-editor-modal" role="dialog" aria-modal="true" aria-labelledby="photoEditorTitle">
+      <div class="photo-editor-header">
+        <div>
+          <span class="eyebrow modal-eyebrow">RAPIKAN FOTO</span>
+          <h2 id="photoEditorTitle">Atur Sudut Sampul</h2>
+          <p>Geser 4 titik mengikuti sudut sampul buku.</p>
+        </div>
+        <button id="closePhotoEditorBtn" class="icon-btn" type="button" aria-label="Tutup">×</button>
+      </div>
+
+      <div id="photoEditorStage" class="photo-editor-stage">
+        <canvas id="photoEditorCanvas"></canvas>
+        <div class="photo-editor-overlay">
+          <div id="cropPolygon" class="crop-polygon"></div>
+          <button class="crop-handle crop-handle-tl" data-corner="tl" type="button" aria-label="Sudut kiri atas"></button>
+          <button class="crop-handle crop-handle-tr" data-corner="tr" type="button" aria-label="Sudut kanan atas"></button>
+          <button class="crop-handle crop-handle-br" data-corner="br" type="button" aria-label="Sudut kanan bawah"></button>
+          <button class="crop-handle crop-handle-bl" data-corner="bl" type="button" aria-label="Sudut kiri bawah"></button>
+        </div>
+      </div>
+
+      <div class="photo-editor-help">
+        <span>✋ Geser titik sudut</span>
+        <span>✂️ Area di luar titik akan dipotong</span>
+      </div>
+
+      <div class="photo-editor-footer">
+        <button id="resetCropBtn" class="btn secondary" type="button">↺ Reset Sudut</button>
+        <div class="photo-editor-actions">
+          <button id="cancelPhotoEditorBtn" class="btn secondary" type="button">Batal</button>
+          <button id="useEditedPhotoBtn" class="btn primary" type="button">✓ Gunakan Foto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="reviewModal" class="modal-backdrop" hidden>
     <div class="review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
 
@@ -397,7 +435,7 @@
     </div>
   </div>
 
-  <script src="config.js?v=20260928-4"></script>
-  <script src="app.js?v=20260928-4"></script>
+  <script src="config.js?v=20260928-5"></script>
+  <script src="app.js?v=20260928-5"></script>
 </body>
 </html>

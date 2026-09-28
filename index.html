@@ -35,7 +35,17 @@
         <input id="searchInput" type="search" placeholder="Cari judul, penulis, atau kode buku..." autocomplete="off">
       </div>
       <button id="refreshBtn" class="btn secondary">↻ Muat ulang</button>
+      <button id="addBookBtn" class="btn primary">＋ Foto Buku</button>
+      <input id="bookPhotoInput" type="file" accept="image/*" capture="environment" hidden>
     </section>
+
+    <div id="uploadBox" class="upload-box" hidden>
+      <div class="upload-spinner"></div>
+      <div>
+        <strong id="uploadTitle">Mengunggah foto...</strong>
+        <p id="uploadMessage">Mohon tunggu.</p>
+      </div>
+    </div>
 
     <section class="section-heading">
       <div>
@@ -48,7 +58,7 @@
       <div class="empty-state">
         <div class="empty-icon">📚</div>
         <h3>Belum ada data ditampilkan</h3>
-        <p>Frontend sudah siap. Kita lanjutkan penyambungan data Google Sheets pada tahap berikutnya.</p>
+        <p>Frontend sudah terhubung ke backend. Koleksi akan kita tampilkan setelah API data buku selesai dibuat.</p>
       </div>
     </section>
   </main>

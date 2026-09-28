@@ -719,6 +719,8 @@ footer {
 
 .scanner-backdrop {
   padding: 12px;
+  background: rgba(0, 0, 0, .72);
+  backdrop-filter: none;
 }
 
 .scanner-modal {
@@ -777,6 +779,8 @@ footer {
   height: 100%;
   display: block;
   object-fit: cover;
+  background: #050505;
+  transform: translateZ(0);
 }
 
 .scanner-guide {
@@ -788,9 +792,7 @@ footer {
   transform: translate(-50%, -50%);
   border: 2px solid rgba(255,255,255,.85);
   border-radius: 10px;
-  box-shadow:
-    0 0 0 9999px rgba(0,0,0,.35),
-    0 0 24px rgba(255,255,255,.18);
+  box-shadow: 0 0 18px rgba(255,255,255,.12);
   pointer-events: none;
 }
 
@@ -918,6 +920,8 @@ footer {
 
   .scanner-backdrop {
     padding: 0;
+    background: #050505;
+    backdrop-filter: none;
   }
 
   .scanner-modal {

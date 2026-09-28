@@ -3,6 +3,12 @@ let currentReview = null;
 let currentBook = null;
 let scannerStream = null;
 let scannerFacingMode = "environment";
+let editorImage = null;
+let editorSourceWidth = 0;
+let editorSourceHeight = 0;
+let editorDisplayScale = 1;
+let editorCorners = null;
+let editorDraggingCorner = null;
 
 document.addEventListener("DOMContentLoaded", function() {
 
@@ -20,6 +26,19 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("chooseFileBtn").addEventListener("click", chooseFileFromScanner);
   document.getElementById("capturePhotoBtn").addEventListener("click", captureScannerPhoto);
   document.getElementById("switchCameraBtn").addEventListener("click", switchScannerCamera);
+
+  document.getElementById("closePhotoEditorBtn").addEventListener("click", closePhotoEditor);
+  document.getElementById("cancelPhotoEditorBtn").addEventListener("click", closePhotoEditor);
+  document.getElementById("resetCropBtn").addEventListener("click", resetCropCorners);
+  document.getElementById("useEditedPhotoBtn").addEventListener("click", useEditedPhoto);
+
+  document.querySelectorAll(".crop-handle").forEach(function(handle) {
+    handle.addEventListener("pointerdown", startCropDrag);
+  });
+
+  document.getElementById("photoEditorStage").addEventListener("pointermove", moveCropDrag);
+  document.getElementById("photoEditorStage").addEventListener("pointerup", endCropDrag);
+  document.getElementById("photoEditorStage").addEventListener("pointercancel", endCropDrag);
 
   document.getElementById("scannerModal").addEventListener("click", function(event) {
     if (event.target.id === "scannerModal") {
@@ -200,7 +219,8 @@ async function switchScannerCamera() {
 
 async function captureScannerPhoto() {
 
-  const video = document.getElementById("scannerVideo");
+  const video =
+    document.getElementById("scannerVideo");
 
   if (
     !scannerStream ||
@@ -210,14 +230,36 @@ async function captureScannerPhoto() {
     return;
   }
 
-  const canvas = document.createElement("canvas");
+  const canvas =
+    document.createElement("canvas");
 
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
+  const maxSide = 1800;
 
-  const context = canvas.getContext("2d", {
-    alpha: false
-  });
+  const scale =
+    Math.min(
+      1,
+      maxSide /
+        Math.max(
+          video.videoWidth,
+          video.videoHeight
+        )
+    );
+
+  canvas.width =
+    Math.round(
+      video.videoWidth * scale
+    );
+
+  canvas.height =
+    Math.round(
+      video.videoHeight * scale
+    );
+
+  const context =
+    canvas.getContext(
+      "2d",
+      { alpha: false }
+    );
 
   context.drawImage(
     video,
@@ -237,7 +279,7 @@ async function captureScannerPhoto() {
 
       closeScanner();
 
-      await processPhotoFile(
+      await openPhotoEditor(
         blob,
         "BUKU_SCAN_" + Date.now() + ".jpg"
       );
@@ -247,7 +289,6 @@ async function captureScannerPhoto() {
     0.90
   );
 }
-
 
 function getListUrl() {
   const separator = CONFIG.BACKEND_URL.includes("?") ? "&" : "?";
@@ -852,6 +893,891 @@ function getValue(id) {
   const element = document.getElementById(id);
 
   return element ? element.value.trim() : "";
+}
+
+
+async function openPhotoEditor(blob, filename) {
+
+  const modal =
+    document.getElementById("photoEditorModal");
+
+  const canvas =
+    document.getElementById("photoEditorCanvas");
+
+  const image =
+    new Image();
+
+  const objectUrl =
+    URL.createObjectURL(blob);
+
+  image.onload = function() {
+
+    URL.revokeObjectURL(objectUrl);
+
+    editorImage = image;
+    editorSourceWidth = image.naturalWidth;
+    editorSourceHeight = image.naturalHeight;
+
+    const maxWidth = 1000;
+    const maxHeight = 720;
+
+    editorDisplayScale =
+      Math.min(
+        1,
+        maxWidth / editorSourceWidth,
+        maxHeight / editorSourceHeight
+      );
+
+    canvas.width =
+      Math.max(
+        1,
+        Math.round(
+          editorSourceWidth *
+          editorDisplayScale
+        )
+      );
+
+    canvas.height =
+      Math.max(
+        1,
+        Math.round(
+          editorSourceHeight *
+          editorDisplayScale
+        )
+      );
+
+    const context =
+      canvas.getContext(
+        "2d",
+        { alpha: false }
+      );
+
+    context.drawImage(
+      image,
+      0,
+      0,
+      canvas.width,
+      canvas.height
+    );
+
+    editorCorners = {
+      tl: {
+        x: canvas.width * 0.08,
+        y: canvas.height * 0.08
+      },
+      tr: {
+        x: canvas.width * 0.92,
+        y: canvas.height * 0.08
+      },
+      br: {
+        x: canvas.width * 0.92,
+        y: canvas.height * 0.92
+      },
+      bl: {
+        x: canvas.width * 0.08,
+        y: canvas.height * 0.92
+      }
+    };
+
+    modal.dataset.filename =
+      filename ||
+      ("BUKU_" + Date.now() + ".jpg");
+
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+
+    requestAnimationFrame(
+      updateCropEditorUI
+    );
+  };
+
+  image.onerror = function() {
+
+    URL.revokeObjectURL(objectUrl);
+
+    alert(
+      "Foto tidak dapat dibuka untuk diedit."
+    );
+  };
+
+  image.src = objectUrl;
+}
+
+
+function closePhotoEditor() {
+
+  const modal =
+    document.getElementById(
+      "photoEditorModal"
+    );
+
+  modal.hidden = true;
+
+  editorImage = null;
+  editorCorners = null;
+  editorDraggingCorner = null;
+
+  if (
+    document.getElementById("reviewModal").hidden &&
+    document.getElementById("detailModal").hidden &&
+    document.getElementById("editModal").hidden &&
+    document.getElementById("scannerModal").hidden
+  ) {
+    document.body.classList.remove(
+      "modal-open"
+    );
+  }
+}
+
+
+function resetCropCorners() {
+
+  if (!editorCorners) {
+    return;
+  }
+
+  const canvas =
+    document.getElementById(
+      "photoEditorCanvas"
+    );
+
+  editorCorners = {
+    tl: {
+      x: canvas.width * 0.08,
+      y: canvas.height * 0.08
+    },
+    tr: {
+      x: canvas.width * 0.92,
+      y: canvas.height * 0.08
+    },
+    br: {
+      x: canvas.width * 0.92,
+      y: canvas.height * 0.92
+    },
+    bl: {
+      x: canvas.width * 0.08,
+      y: canvas.height * 0.92
+    }
+  };
+
+  updateCropEditorUI();
+}
+
+
+function startCropDrag(event) {
+
+  event.preventDefault();
+
+  editorDraggingCorner =
+    event.currentTarget.dataset.corner;
+
+  event.currentTarget.setPointerCapture(
+    event.pointerId
+  );
+
+  updateCropPointFromPointer(event);
+}
+
+
+function moveCropDrag(event) {
+
+  if (!editorDraggingCorner) {
+    return;
+  }
+
+  updateCropPointFromPointer(event);
+}
+
+
+function endCropDrag() {
+
+  editorDraggingCorner = null;
+}
+
+
+function updateCropPointFromPointer(event) {
+
+  if (
+    !editorCorners ||
+    !editorDraggingCorner
+  ) {
+    return;
+  }
+
+  const canvas =
+    document.getElementById(
+      "photoEditorCanvas"
+    );
+
+  const rect =
+    canvas.getBoundingClientRect();
+
+  let x =
+    event.clientX -
+    rect.left;
+
+  let y =
+    event.clientY -
+    rect.top;
+
+  x =
+    Math.max(
+      6,
+      Math.min(
+        rect.width - 6,
+        x
+      )
+    );
+
+  y =
+    Math.max(
+      6,
+      Math.min(
+        rect.height - 6,
+        y
+      )
+    );
+
+  editorCorners[
+    editorDraggingCorner
+  ] = {
+    x:
+      x *
+      canvas.width /
+      rect.width,
+
+    y:
+      y *
+      canvas.height /
+      rect.height
+  };
+
+  updateCropEditorUI();
+}
+
+
+function updateCropEditorUI() {
+
+  if (!editorCorners) {
+    return;
+  }
+
+  const canvas =
+    document.getElementById(
+      "photoEditorCanvas"
+    );
+
+  const stage =
+    document.getElementById(
+      "photoEditorStage"
+    );
+
+  const canvasRect =
+    canvas.getBoundingClientRect();
+
+  const stageRect =
+    stage.getBoundingClientRect();
+
+  const sx =
+    canvasRect.width /
+    canvas.width;
+
+  const sy =
+    canvasRect.height /
+    canvas.height;
+
+  const points = {};
+
+  Object.keys(editorCorners)
+    .forEach(function(key) {
+
+      points[key] = {
+        x:
+          editorCorners[key].x *
+          sx +
+          canvasRect.left -
+          stageRect.left,
+
+        y:
+          editorCorners[key].y *
+          sy +
+          canvasRect.top -
+          stageRect.top
+      };
+
+    });
+
+  const polygon =
+    document.getElementById(
+      "cropPolygon"
+    );
+
+  polygon.style.width =
+    stageRect.width + "px";
+
+  polygon.style.height =
+    stageRect.height + "px";
+
+  polygon.style.left = "0";
+  polygon.style.top = "0";
+
+  polygon.style.clipPath =
+    "polygon(" +
+      points.tl.x + "px " + points.tl.y + "px," +
+      points.tr.x + "px " + points.tr.y + "px," +
+      points.br.x + "px " + points.br.y + "px," +
+      points.bl.x + "px " + points.bl.y + "px)";
+
+  document.querySelectorAll(
+    ".crop-handle"
+  ).forEach(function(handle) {
+
+    const point =
+      points[
+        handle.dataset.corner
+      ];
+
+    handle.style.left =
+      point.x + "px";
+
+    handle.style.top =
+      point.y + "px";
+
+  });
+}
+
+
+async function useEditedPhoto() {
+
+  if (
+    !editorImage ||
+    !editorCorners
+  ) {
+    return;
+  }
+
+  const button =
+    document.getElementById(
+      "useEditedPhotoBtn"
+    );
+
+  button.disabled = true;
+  button.textContent =
+    "Memproses...";
+
+  try {
+
+    const outputBlob =
+      await createPerspectiveCrop();
+
+    if (!outputBlob) {
+      throw new Error(
+        "Hasil crop tidak berhasil dibuat."
+      );
+    }
+
+    const modal =
+      document.getElementById(
+        "photoEditorModal"
+      );
+
+    const filename =
+      modal.dataset.filename ||
+      ("BUKU_" + Date.now() + ".jpg");
+
+    closePhotoEditor();
+
+    await processPhotoFile(
+      outputBlob,
+      filename
+    );
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert(
+      "Foto belum dapat dirapikan: " +
+      error.message
+    );
+
+  } finally {
+
+    button.disabled = false;
+    button.textContent =
+      "✓ Gunakan Foto";
+  }
+}
+
+
+function createPerspectiveCrop() {
+
+  return new Promise(function(resolve) {
+
+    const sourceCanvas =
+      document.createElement("canvas");
+
+    sourceCanvas.width =
+      editorSourceWidth;
+
+    sourceCanvas.height =
+      editorSourceHeight;
+
+    const sourceContext =
+      sourceCanvas.getContext(
+        "2d",
+        { alpha: false }
+      );
+
+    sourceContext.drawImage(
+      editorImage,
+      0,
+      0,
+      editorSourceWidth,
+      editorSourceHeight
+    );
+
+    const scale =
+      editorDisplayScale;
+
+    const sourceCorners = [
+      {
+        x: editorCorners.tl.x / scale,
+        y: editorCorners.tl.y / scale
+      },
+      {
+        x: editorCorners.tr.x / scale,
+        y: editorCorners.tr.y / scale
+      },
+      {
+        x: editorCorners.br.x / scale,
+        y: editorCorners.br.y / scale
+      },
+      {
+        x: editorCorners.bl.x / scale,
+        y: editorCorners.bl.y / scale
+      }
+    ];
+
+    const topWidth =
+      distance(
+        sourceCorners[0],
+        sourceCorners[1]
+      );
+
+    const bottomWidth =
+      distance(
+        sourceCorners[3],
+        sourceCorners[2]
+      );
+
+    const leftHeight =
+      distance(
+        sourceCorners[0],
+        sourceCorners[3]
+      );
+
+    const rightHeight =
+      distance(
+        sourceCorners[1],
+        sourceCorners[2]
+      );
+
+    const baseWidth =
+      Math.max(
+        topWidth,
+        bottomWidth
+      );
+
+    const baseHeight =
+      Math.max(
+        leftHeight,
+        rightHeight
+      );
+
+    if (
+      baseWidth < 50 ||
+      baseHeight < 50
+    ) {
+      resolve(null);
+      return;
+    }
+
+    const ratio =
+      baseHeight /
+      baseWidth;
+
+    const outputWidth =
+      Math.min(
+        1400,
+        Math.max(
+          500,
+          Math.round(baseWidth)
+        )
+      );
+
+    const outputHeight =
+      Math.min(
+        1900,
+        Math.max(
+          600,
+          Math.round(
+            outputWidth * ratio
+          )
+        )
+      );
+
+    const outputCanvas =
+      document.createElement("canvas");
+
+    outputCanvas.width =
+      outputWidth;
+
+    outputCanvas.height =
+      outputHeight;
+
+    const outputContext =
+      outputCanvas.getContext(
+        "2d",
+        { alpha: false }
+      );
+
+    const homography =
+      solveHomography(
+        sourceCorners,
+        [
+          { x: 0, y: 0 },
+          { x: outputWidth, y: 0 },
+          { x: outputWidth, y: outputHeight },
+          { x: 0, y: outputHeight }
+        ]
+      );
+
+    const imageData =
+      sourceContext.getImageData(
+        0,
+        0,
+        editorSourceWidth,
+        editorSourceHeight
+      );
+
+    const outputData =
+      outputContext.createImageData(
+        outputWidth,
+        outputHeight
+      );
+
+    const source =
+      imageData.data;
+
+    const target =
+      outputData.data;
+
+    for (
+      let y = 0;
+      y < outputHeight;
+      y++
+    ) {
+
+      for (
+        let x = 0;
+        x < outputWidth;
+        x++
+      ) {
+
+        const denominator =
+          homography[6] * x +
+          homography[7] * y +
+          1;
+
+        const sx =
+          (
+            homography[0] * x +
+            homography[1] * y +
+            homography[2]
+          ) /
+          denominator;
+
+        const sy =
+          (
+            homography[3] * x +
+            homography[4] * y +
+            homography[5]
+          ) /
+          denominator;
+
+        const x0 =
+          Math.floor(sx);
+
+        const y0 =
+          Math.floor(sy);
+
+        const x1 =
+          x0 + 1;
+
+        const y1 =
+          y0 + 1;
+
+        const fx =
+          sx - x0;
+
+        const fy =
+          sy - y0;
+
+        const outIndex =
+          (
+            y *
+            outputWidth +
+            x
+          ) * 4;
+
+        if (
+          x0 < 0 ||
+          y0 < 0 ||
+          x1 >= editorSourceWidth ||
+          y1 >= editorSourceHeight
+        ) {
+
+          target[outIndex] = 255;
+          target[outIndex + 1] = 255;
+          target[outIndex + 2] = 255;
+          target[outIndex + 3] = 255;
+
+          continue;
+        }
+
+        const i00 =
+          (
+            y0 *
+            editorSourceWidth +
+            x0
+          ) * 4;
+
+        const i10 =
+          (
+            y0 *
+            editorSourceWidth +
+            x1
+          ) * 4;
+
+        const i01 =
+          (
+            y1 *
+            editorSourceWidth +
+            x0
+          ) * 4;
+
+        const i11 =
+          (
+            y1 *
+            editorSourceWidth +
+            x1
+          ) * 4;
+
+        for (
+          let channel = 0;
+          channel < 3;
+          channel++
+        ) {
+
+          const top =
+            source[i00 + channel] *
+              (1 - fx) +
+            source[i10 + channel] *
+              fx;
+
+          const bottom =
+            source[i01 + channel] *
+              (1 - fx) +
+            source[i11 + channel] *
+              fx;
+
+          target[
+            outIndex + channel
+          ] =
+            top *
+              (1 - fy) +
+            bottom *
+              fy;
+        }
+
+        target[
+          outIndex + 3
+        ] = 255;
+      }
+    }
+
+    outputContext.putImageData(
+      outputData,
+      0,
+      0
+    );
+
+    outputCanvas.toBlob(
+      function(blob) {
+        resolve(blob);
+      },
+      "image/jpeg",
+      0.90
+    );
+  });
+}
+
+
+function distance(a, b) {
+
+  return Math.hypot(
+    b.x - a.x,
+    b.y - a.y
+  );
+}
+
+
+function solveHomography(source, target) {
+
+  const matrix = [];
+  const vector = [];
+
+  for (
+    let i = 0;
+    i < 4;
+    i++
+  ) {
+
+    const x = source[i].x;
+    const y = source[i].y;
+    const X = target[i].x;
+    const Y = target[i].y;
+
+    matrix.push([
+      x, y, 1,
+      0, 0, 0,
+      -X * x,
+      -X * y
+    ]);
+
+    vector.push(X);
+
+    matrix.push([
+      0, 0, 0,
+      x, y, 1,
+      -Y * x,
+      -Y * y
+    ]);
+
+    vector.push(Y);
+  }
+
+  return gaussianSolve(
+    matrix,
+    vector
+  );
+}
+
+
+function gaussianSolve(matrix, vector) {
+
+  const n = vector.length;
+
+  for (
+    let i = 0;
+    i < n;
+    i++
+  ) {
+
+    let maxRow = i;
+
+    for (
+      let row = i + 1;
+      row < n;
+      row++
+    ) {
+
+      if (
+        Math.abs(matrix[row][i]) >
+        Math.abs(matrix[maxRow][i])
+      ) {
+        maxRow = row;
+      }
+    }
+
+    [
+      matrix[i],
+      matrix[maxRow]
+    ] = [
+      matrix[maxRow],
+      matrix[i]
+    ];
+
+    [
+      vector[i],
+      vector[maxRow]
+    ] = [
+      vector[maxRow],
+      vector[i]
+    ];
+
+    const pivot =
+      matrix[i][i];
+
+    if (
+      Math.abs(pivot) <
+      1e-12
+    ) {
+      throw new Error(
+        "Sudut foto tidak valid."
+      );
+    }
+
+    for (
+      let column = i;
+      column < n;
+      column++
+    ) {
+      matrix[i][column] /=
+        pivot;
+    }
+
+    vector[i] /=
+      pivot;
+
+    for (
+      let row = 0;
+      row < n;
+      row++
+    ) {
+
+      if (row === i) {
+        continue;
+      }
+
+      const factor =
+        matrix[row][i];
+
+      if (
+        Math.abs(factor) <
+        1e-12
+      ) {
+        continue;
+      }
+
+      for (
+        let column = i;
+        column < n;
+        column++
+      ) {
+        matrix[row][column] -=
+          factor *
+          matrix[i][column];
+      }
+
+      vector[row] -=
+        factor *
+        vector[i];
+    }
+  }
+
+  return vector;
 }
 
 

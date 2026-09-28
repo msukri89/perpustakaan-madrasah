@@ -4,12 +4,22 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("version").textContent = CONFIG.VERSION;
   document.getElementById("searchInput").addEventListener("input", renderBooks);
   document.getElementById("refreshBtn").addEventListener("click", checkBackend);
-  document.getElementById("addBookBtn").addEventListener("click", () => {
-    document.getElementById("bookPhotoInput").click();
-  });
+  document.getElementById("addBookBtn").addEventListener("click", openPhotoPicker);
   document.getElementById("bookPhotoInput").addEventListener("change", handlePhotoSelected);
+
+  // Pastikan status upload selalu tersembunyi saat halaman pertama dibuka.
+  hideUpload();
   checkBackend();
 });
+
+function openPhotoPicker() {
+  const input = document.getElementById("bookPhotoInput");
+
+  // Bersihkan pilihan sebelumnya agar membatalkan picker tidak
+  // dianggap sebagai pemilihan foto baru.
+  input.value = "";
+  input.click();
+}
 
 async function checkBackend() {
   const badge = document.getElementById("connectionStatus");
@@ -53,13 +63,29 @@ async function checkBackend() {
 }
 
 async function handlePhotoSelected(event) {
-  const file = event.target.files[0];
-  event.target.value = "";
+  const input = event.target;
+  const file = input.files && input.files.length ? input.files[0] : null;
 
-  if (!file) return;
+  // Apabila pengguna menutup/batal memilih foto:
+  // jangan tampilkan status upload apa pun.
+  if (!file) {
+    hideUpload();
+    input.value = "";
+    return;
+  }
 
-  if (!file.type.startsWith("image/")) {
+  // Bersihkan input setelah file berhasil dibaca.
+  input.value = "";
+
+  if (!file.type || !file.type.startsWith("image/")) {
+    hideUpload();
     alert("File yang dipilih bukan foto.");
+    return;
+  }
+
+  if (file.size <= 0) {
+    hideUpload();
+    alert("Foto kosong atau tidak dapat dibaca.");
     return;
   }
 
@@ -101,15 +127,19 @@ async function handlePhotoSelected(event) {
 }
 
 function showUpload(title, message) {
+  const box = document.getElementById("uploadBox");
   document.getElementById("uploadTitle").textContent = title;
   document.getElementById("uploadMessage").textContent = message;
-  document.getElementById("uploadBox").hidden = false;
+  box.hidden = false;
   document.getElementById("addBookBtn").disabled = true;
 }
 
 function hideUpload() {
-  document.getElementById("uploadBox").hidden = true;
-  document.getElementById("addBookBtn").disabled = false;
+  const box = document.getElementById("uploadBox");
+  if (box) box.hidden = true;
+
+  const button = document.getElementById("addBookBtn");
+  if (button) button.disabled = false;
 }
 
 function compressImage(file, maxSide, quality) {
@@ -126,9 +156,21 @@ function compressImage(file, maxSide, quality) {
         canvas.height = Math.round(img.height * scale);
 
         const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Browser tidak dapat memproses foto."));
+          return;
+        }
+
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-        resolve(canvas.toDataURL("image/jpeg", quality));
+        const result = canvas.toDataURL("image/jpeg", quality);
+
+        if (!result || result.length < 100) {
+          reject(new Error("Foto gagal diproses."));
+          return;
+        }
+
+        resolve(result);
       };
 
       img.onerror = () => reject(new Error("Foto tidak dapat dibaca."));

@@ -573,3 +573,43 @@ footer {
     width: 100%;
   }
 }
+
+
+/* EDIT MODAL */
+
+.edit-modal {
+  width: min(720px, 100%);
+}
+
+.edit-locked-note {
+  padding: 13px 15px;
+  margin-bottom: 18px;
+  border: 1px solid #e4e8e9;
+  background: #f7f8f8;
+  border-radius: 14px;
+}
+
+.edit-locked-note strong {
+  font-size: 13px;
+}
+
+.edit-locked-note p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.detail-footer {
+  gap: 10px;
+}
+
+@media (max-width: 760px) {
+  .detail-footer {
+    flex-direction: column-reverse;
+  }
+
+  .detail-footer .btn {
+    width: 100%;
+  }
+}

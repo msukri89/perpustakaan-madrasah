@@ -149,6 +149,10 @@ body.modal-open { overflow: hidden; }
 .btn.primary { background: var(--primary); color: white; }
 .btn:disabled { opacity: .55; cursor: not-allowed; }
 
+.upload-box[hidden] {
+  display: none;
+}
+
 .upload-box {
   display: flex;
   align-items: center;

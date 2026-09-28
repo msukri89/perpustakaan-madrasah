@@ -7,16 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("addBookBtn").addEventListener("click", openPhotoPicker);
   document.getElementById("bookPhotoInput").addEventListener("change", handlePhotoSelected);
 
-  // Pastikan status upload selalu tersembunyi saat halaman pertama dibuka.
   hideUpload();
   checkBackend();
 });
 
 function openPhotoPicker() {
   const input = document.getElementById("bookPhotoInput");
-
-  // Bersihkan pilihan sebelumnya agar membatalkan picker tidak
-  // dianggap sebagai pemilihan foto baru.
   input.value = "";
   input.click();
 }
@@ -66,15 +62,12 @@ async function handlePhotoSelected(event) {
   const input = event.target;
   const file = input.files && input.files.length ? input.files[0] : null;
 
-  // Apabila pengguna menutup/batal memilih foto:
-  // jangan tampilkan status upload apa pun.
   if (!file) {
     hideUpload();
     input.value = "";
     return;
   }
 
-  // Bersihkan input setelah file berhasil dibaca.
   input.value = "";
 
   if (!file.type || !file.type.startsWith("image/")) {
@@ -117,8 +110,14 @@ async function handlePhotoSelected(event) {
       throw new Error(result.message || "Upload gagal.");
     }
 
-    hideUpload();
-    alert("Alhamdulillah! Foto berhasil disimpan ke FOTO KOLEKSI.");
+    // Jangan gunakan alert di sini. Browser kadang belum sempat
+    // menggambar perubahan DOM sebelum modal alert tampil.
+    showUpload("✓ Foto berhasil disimpan", "Foto sudah masuk ke folder FOTO KOLEKSI.");
+
+    setTimeout(() => {
+      hideUpload();
+    }, 1500);
+
   } catch (error) {
     hideUpload();
     console.error(error);

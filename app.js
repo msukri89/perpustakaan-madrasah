@@ -7,6 +7,9 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("version").textContent = CONFIG.VERSION;
 
   document.getElementById("searchInput").addEventListener("input", renderBooks);
+  document.getElementById("categoryFilter").addEventListener("change", renderBooks);
+  document.getElementById("typeFilter").addEventListener("change", renderBooks);
+  document.getElementById("resetFilterBtn").addEventListener("click", resetFilters);
   document.getElementById("refreshBtn").addEventListener("click", checkBackend);
   document.getElementById("addBookBtn").addEventListener("click", openPhotoPicker);
   document.getElementById("bookPhotoInput").addEventListener("change", handlePhotoSelected);
@@ -91,6 +94,8 @@ async function checkBackend() {
     }
 
     books = Array.isArray(data.books) ? data.books : [];
+
+    updateFilterOptions();
 
     badge.className = "status-badge online";
     badge.textContent = "● Backend aktif";
@@ -679,6 +684,91 @@ function compressImage(file, maxSide, quality) {
 }
 
 
+function updateFilterOptions() {
+
+  const categorySelect =
+    document.getElementById("categoryFilter");
+
+  const typeSelect =
+    document.getElementById("typeFilter");
+
+  const currentCategory =
+    categorySelect.value;
+
+  const currentType =
+    typeSelect.value;
+
+  const categories = [...new Set(
+    books
+      .map(function(book) {
+        return String(book.kategori || "").trim();
+      })
+      .filter(Boolean)
+  )].sort(function(a, b) {
+    return a.localeCompare(b, "id");
+  });
+
+  const types = [...new Set(
+    books
+      .map(function(book) {
+        return String(book.jenis || "").trim();
+      })
+      .filter(Boolean)
+  )].sort(function(a, b) {
+    return a.localeCompare(b, "id");
+  });
+
+  categorySelect.innerHTML =
+    '<option value="">Semua Kategori</option>' +
+    categories.map(function(category) {
+      return '<option value="' +
+        escapeHtml(category) +
+        '">' +
+        escapeHtml(category) +
+        '</option>';
+    }).join("");
+
+  typeSelect.innerHTML =
+    '<option value="">Semua Jenis</option>' +
+    types.map(function(type) {
+      return '<option value="' +
+        escapeHtml(type) +
+        '">' +
+        escapeHtml(type) +
+        '</option>';
+    }).join("");
+
+  if (categories.includes(currentCategory)) {
+    categorySelect.value = currentCategory;
+  }
+
+  if (types.includes(currentType)) {
+    typeSelect.value = currentType;
+  }
+}
+
+
+function resetFilters() {
+
+  document.getElementById("searchInput").value = "";
+  document.getElementById("categoryFilter").value = "";
+  document.getElementById("typeFilter").value = "";
+
+  renderBooks();
+}
+
+
+function escapeHtml(value) {
+
+  return String(value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+
 function renderBooks() {
 
   const grid = document.getElementById("booksGrid");
@@ -689,14 +779,46 @@ function renderBooks() {
       .trim()
       .toLowerCase();
 
+  const selectedCategory =
+    document.getElementById("categoryFilter").value;
+
+  const selectedType =
+    document.getElementById("typeFilter").value;
+
   const filtered = books.filter(function(book) {
 
     const text =
-      Object.values(book)
+      [
+        book.judul,
+        book.penulis,
+        book.kode_buku,
+        book.kategori,
+        book.subkategori,
+        book.jenis,
+        book.penerbit,
+        book.tahun_terbit,
+        book.lokasi_rak
+      ]
         .join(" ")
         .toLowerCase();
 
-    return text.includes(query);
+    const matchesSearch =
+      !query ||
+      text.includes(query);
+
+    const matchesCategory =
+      !selectedCategory ||
+      book.kategori === selectedCategory;
+
+    const matchesType =
+      !selectedType ||
+      book.jenis === selectedType;
+
+    return (
+      matchesSearch &&
+      matchesCategory &&
+      matchesType
+    );
   });
 
   document.getElementById("resultInfo").textContent =

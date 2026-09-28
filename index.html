@@ -34,6 +34,16 @@
         <span>⌕</span>
         <input id="searchInput" type="search" placeholder="Cari judul, penulis, atau kode buku..." autocomplete="off">
       </div>
+
+      <select id="categoryFilter" class="filter-select" aria-label="Filter kategori">
+        <option value="">Semua Kategori</option>
+      </select>
+
+      <select id="typeFilter" class="filter-select" aria-label="Filter jenis">
+        <option value="">Semua Jenis</option>
+      </select>
+
+      <button id="resetFilterBtn" class="btn secondary filter-reset" type="button">Reset</button>
       <button id="refreshBtn" class="btn secondary">↻ Muat ulang</button>
       <button id="addBookBtn" class="btn primary">＋ Foto Buku</button>
       <input id="bookPhotoInput" type="file" accept="image/*" capture="environment" hidden>

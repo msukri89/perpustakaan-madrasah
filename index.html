@@ -42,7 +42,7 @@
     <div id="uploadBox" class="upload-box" hidden>
       <div class="upload-spinner"></div>
       <div>
-        <strong id="uploadTitle">Mengunggah foto...</strong>
+        <strong id="uploadTitle">Menyiapkan foto...</strong>
         <p id="uploadMessage">Mohon tunggu.</p>
       </div>
     </div>
@@ -58,7 +58,7 @@
       <div class="empty-state">
         <div class="empty-icon">📚</div>
         <h3>Belum ada data ditampilkan</h3>
-        <p>Frontend sudah terhubung ke backend. Koleksi akan kita tampilkan setelah API data buku selesai dibuat.</p>
+        <p>Koleksi buku akan muncul di sini setelah data tersedia.</p>
       </div>
     </section>
   </main>
@@ -67,6 +67,103 @@
     <span>Perpustakaan Madrasah</span>
     <span>Versi <span id="version"></span></span>
   </footer>
+
+  <div id="reviewModal" class="modal-backdrop" hidden>
+    <div class="review-modal" role="dialog" aria-modal="true" aria-labelledby="reviewTitle">
+
+      <div class="review-header">
+        <div>
+          <span class="eyebrow modal-eyebrow">HASIL PEMBACAAN AI</span>
+          <h2 id="reviewTitle">Periksa Data Buku</h2>
+          <p>Periksa dan koreksi data sebelum disimpan ke koleksi.</p>
+        </div>
+
+        <button id="closeReviewBtn" class="icon-btn" type="button" aria-label="Tutup">×</button>
+      </div>
+
+      <div class="review-body">
+
+        <div class="ai-note">
+          <span>🤖</span>
+          <div>
+            <strong>AI membaca foto buku</strong>
+            <p>Data berikut masih dapat Anda koreksi sebelum disimpan.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+
+          <label class="field field-full">
+            <span>Judul Buku *</span>
+            <input id="reviewJudul" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Penulis</span>
+            <input id="reviewPenulis" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Penerbit</span>
+            <input id="reviewPenerbit" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Tahun Terbit</span>
+            <input id="reviewTahun" type="text" inputmode="numeric" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Jenis</span>
+            <select id="reviewJenis">
+              <option value="">Pilih jenis</option>
+              <option value="Buku Pelajaran">Buku Pelajaran</option>
+              <option value="Buku Keagamaan">Buku Keagamaan</option>
+              <option value="Buku Referensi">Buku Referensi</option>
+              <option value="Novel">Novel</option>
+              <option value="Cerpen">Cerpen</option>
+              <option value="Majalah">Majalah</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Kategori</span>
+            <input id="reviewKategori" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Subkategori</span>
+            <input id="reviewSubkategori" type="text" autocomplete="off">
+          </label>
+
+          <label class="field field-full">
+            <span>Lokasi / Rak</span>
+            <input id="reviewLokasi" type="text" placeholder="Contoh: Rak A-01" autocomplete="off">
+          </label>
+
+          <label class="field field-full">
+            <span>Catatan AI</span>
+            <textarea id="reviewCatatan" rows="3"></textarea>
+          </label>
+
+        </div>
+
+        <div class="confidence-row">
+          <span>Keyakinan AI</span>
+          <strong id="reviewConfidence">-</strong>
+        </div>
+
+        <div id="saveReviewMessage" class="save-message" hidden></div>
+      </div>
+
+      <div class="review-footer">
+        <button id="cancelReviewBtn" class="btn secondary" type="button">Batal</button>
+        <button id="saveReviewBtn" class="btn primary" type="button">💾 Simpan ke Koleksi</button>
+      </div>
+
+    </div>
+  </div>
 
   <script src="config.js"></script>
   <script src="app.js"></script>

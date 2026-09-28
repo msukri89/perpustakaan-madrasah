@@ -90,10 +90,16 @@ body.modal-open { overflow: hidden; }
 .hero p { margin: 0; max-width: 560px; opacity: .84; }
 .hero-book { font-size: 100px; opacity: .9; transform: rotate(-8deg); }
 
-.toolbar { display: flex; gap: 12px; margin: 24px 0 14px; }
+.toolbar {
+  display: flex;
+  gap: 10px;
+  margin: 24px 0 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
 
 .search-wrap {
-  flex: 1;
+  flex: 1 1 320px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -106,6 +112,28 @@ body.modal-open { overflow: hidden; }
 
 .search-wrap span { font-size: 24px; color: var(--muted); }
 .search-wrap input { width: 100%; border: 0; outline: 0; font: inherit; background: transparent; }
+
+.filter-select {
+  height: 50px;
+  min-width: 165px;
+  padding: 0 36px 0 13px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: white;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.filter-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, .09);
+}
+
+.filter-reset {
+  min-width: 76px;
+}
 
 .btn {
   border: 0;
@@ -395,7 +423,17 @@ footer {
   .hero-book { display: none; }
   .toolbar { flex-wrap: wrap; }
   .search-wrap { flex-basis: 100%; }
-  .btn { flex: 1; }
+  .filter-select {
+    flex: 1 1 calc(50% - 5px);
+    min-width: 0;
+  }
+  .filter-reset {
+    flex: 1 1 100%;
+  }
+  .toolbar > #refreshBtn,
+  .toolbar > #addBookBtn {
+    flex: 1 1 calc(50% - 5px);
+  }
 
   .review-modal { max-height: 96vh; border-radius: 20px; }
   .review-header,

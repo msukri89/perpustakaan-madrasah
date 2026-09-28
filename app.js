@@ -363,7 +363,7 @@ async function handlePhotoSelected(event) {
     return;
   }
 
-  await processPhotoFile(
+  await openPhotoEditor(
     file,
     file.name || ("BUKU_" + Date.now() + ".jpg")
   );
@@ -914,9 +914,60 @@ async function openPhotoEditor(blob, filename) {
 
     URL.revokeObjectURL(objectUrl);
 
-    editorImage = image;
-    editorSourceWidth = image.naturalWidth;
-    editorSourceHeight = image.naturalHeight;
+    const sourceMaxSide = 1800;
+
+    const sourceScale =
+      Math.min(
+        1,
+        sourceMaxSide /
+          Math.max(
+            image.naturalWidth,
+            image.naturalHeight
+          )
+      );
+
+    const sourceCanvas =
+      document.createElement("canvas");
+
+    editorSourceWidth =
+      Math.max(
+        1,
+        Math.round(
+          image.naturalWidth *
+          sourceScale
+        )
+      );
+
+    editorSourceHeight =
+      Math.max(
+        1,
+        Math.round(
+          image.naturalHeight *
+          sourceScale
+        )
+      );
+
+    sourceCanvas.width =
+      editorSourceWidth;
+
+    sourceCanvas.height =
+      editorSourceHeight;
+
+    sourceCanvas
+      .getContext(
+        "2d",
+        { alpha: false }
+      )
+      .drawImage(
+        image,
+        0,
+        0,
+        editorSourceWidth,
+        editorSourceHeight
+      );
+
+    editorImage =
+      sourceCanvas;
 
     const maxWidth = 1000;
     const maxHeight = 720;

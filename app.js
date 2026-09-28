@@ -1,6 +1,8 @@
 let books = [];
 let currentReview = null;
 let currentBook = null;
+let scannerStream = null;
+let scannerFacingMode = "environment";
 
 document.addEventListener("DOMContentLoaded", function() {
 
@@ -11,8 +13,19 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("typeFilter").addEventListener("change", renderBooks);
   document.getElementById("resetFilterBtn").addEventListener("click", resetFilters);
   document.getElementById("refreshBtn").addEventListener("click", checkBackend);
-  document.getElementById("addBookBtn").addEventListener("click", openPhotoPicker);
+  document.getElementById("addBookBtn").addEventListener("click", openPhotoOptions);
   document.getElementById("bookPhotoInput").addEventListener("change", handlePhotoSelected);
+
+  document.getElementById("closeScannerBtn").addEventListener("click", closeScanner);
+  document.getElementById("chooseFileBtn").addEventListener("click", chooseFileFromScanner);
+  document.getElementById("capturePhotoBtn").addEventListener("click", captureScannerPhoto);
+  document.getElementById("switchCameraBtn").addEventListener("click", switchScannerCamera);
+
+  document.getElementById("scannerModal").addEventListener("click", function(event) {
+    if (event.target.id === "scannerModal") {
+      closeScanner();
+    }
+  });
 
   document.getElementById("closeReviewBtn").addEventListener("click", closeReview);
   document.getElementById("cancelReviewBtn").addEventListener("click", closeReview);
@@ -48,10 +61,239 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 
 
+async function openPhotoOptions() {
+
+  const modal = document.getElementById("scannerModal");
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+
+  await startScannerCamera();
+}
+
+
 function openPhotoPicker() {
+
   const input = document.getElementById("bookPhotoInput");
+
   input.value = "";
   input.click();
+}
+
+
+function chooseFileFromScanner() {
+
+  closeScanner();
+  openPhotoPicker();
+}
+
+
+async function startScannerCamera() {
+
+  stopScannerCamera();
+
+  const video = document.getElementById("scannerVideo");
+  const message = document.getElementById("scannerCameraMessage");
+
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+
+    message.hidden = false;
+    message.textContent =
+      "Kamera tidak tersedia di browser ini. Gunakan tombol Pilih dari HP.";
+
+    document.getElementById("capturePhotoBtn").disabled = true;
+    document.getElementById("switchCameraBtn").disabled = true;
+    return;
+  }
+
+  try {
+
+    scannerStream =
+      await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: {
+            ideal: scannerFacingMode
+          },
+          width: {
+            ideal: 1920
+          },
+          height: {
+            ideal: 1080
+          }
+        },
+        audio: false
+      });
+
+    video.srcObject = scannerStream;
+
+    message.hidden = true;
+    document.getElementById("capturePhotoBtn").disabled = false;
+    document.getElementById("switchCameraBtn").disabled = false;
+
+  } catch (error) {
+
+    console.error(error);
+
+    message.hidden = false;
+    message.textContent =
+      "Kamera tidak dapat dibuka. Izinkan akses kamera atau gunakan Pilih dari HP.";
+
+    document.getElementById("capturePhotoBtn").disabled = true;
+  }
+}
+
+
+function stopScannerCamera() {
+
+  if (scannerStream) {
+
+    scannerStream.getTracks().forEach(function(track) {
+      track.stop();
+    });
+
+    scannerStream = null;
+  }
+
+  const video = document.getElementById("scannerVideo");
+
+  if (video) {
+    video.srcObject = null;
+  }
+}
+
+
+function closeScanner() {
+
+  stopScannerCamera();
+
+  const modal = document.getElementById("scannerModal");
+
+  if (modal) {
+    modal.hidden = true;
+  }
+
+  if (
+    document.getElementById("reviewModal").hidden &&
+    document.getElementById("detailModal").hidden &&
+    document.getElementById("editModal").hidden
+  ) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+
+async function switchScannerCamera() {
+
+  scannerFacingMode =
+    scannerFacingMode === "environment"
+      ? "user"
+      : "environment";
+
+  await startScannerCamera();
+}
+
+
+async function captureScannerPhoto() {
+
+  const video = document.getElementById("scannerVideo");
+
+  if (
+    !scannerStream ||
+    !video.videoWidth ||
+    !video.videoHeight
+  ) {
+    return;
+  }
+
+  const canvas =
+    document.createElement("canvas");
+
+  /*
+   * Crop mengikuti bingkai scanner.
+   * Bingkai dibuat dengan rasio 3:4 agar
+   * cocok untuk sampul buku.
+   */
+
+  const sourceWidth =
+    video.videoWidth;
+
+  const sourceHeight =
+    video.videoHeight;
+
+  const targetRatio =
+    3 / 4;
+
+  let cropWidth =
+    sourceWidth * 0.72;
+
+  let cropHeight =
+    cropWidth / targetRatio;
+
+  if (cropHeight > sourceHeight * 0.86) {
+
+    cropHeight =
+      sourceHeight * 0.86;
+
+    cropWidth =
+      cropHeight * targetRatio;
+  }
+
+  const cropX =
+    (sourceWidth - cropWidth) / 2;
+
+  const cropY =
+    (sourceHeight - cropHeight) / 2;
+
+  const outputWidth =
+    Math.min(
+      1600,
+      Math.round(cropWidth)
+    );
+
+  const outputHeight =
+    Math.round(
+      outputWidth / targetRatio
+    );
+
+  canvas.width = outputWidth;
+  canvas.height = outputHeight;
+
+  const context =
+    canvas.getContext("2d", {
+      alpha: false
+    });
+
+  context.drawImage(
+    video,
+    cropX,
+    cropY,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    outputWidth,
+    outputHeight
+  );
+
+  canvas.toBlob(
+    async function(blob) {
+
+      if (!blob) {
+
+        alert("Foto tidak berhasil dibuat.");
+        return;
+      }
+
+      closeScanner();
+
+      await processPhotoFile(
+        blob,
+        "BUKU_SCAN_" + Date.now() + ".jpg"
+      );
+
+    },
+    "image/jpeg",
+    0.88
+  );
 }
 
 
@@ -116,23 +358,36 @@ async function checkBackend() {
 async function handlePhotoSelected(event) {
 
   const input = event.target;
-  const file = input.files && input.files.length ? input.files[0] : null;
-
-  if (!file) {
-    hideUpload();
-    input.value = "";
-    return;
-  }
+  const file =
+    input.files && input.files.length
+      ? input.files[0]
+      : null;
 
   input.value = "";
 
+  if (!file) {
+    hideUpload();
+    return;
+  }
+
+  await processPhotoFile(
+    file,
+    file.name || ("BUKU_" + Date.now() + ".jpg")
+  );
+}
+
+
+async function processPhotoFile(file, filename) {
+
   if (!file.type || !file.type.startsWith("image/")) {
+
     hideUpload();
     alert("File yang dipilih bukan foto.");
     return;
   }
 
   if (file.size <= 0) {
+
     hideUpload();
     alert("Foto kosong atau tidak dapat dibaca.");
     return;
@@ -145,36 +400,59 @@ async function handlePhotoSelected(event) {
 
   try {
 
-    const dataUrl = await compressImage(file, 1600, 0.82);
+    const dataUrl =
+      await compressImage(
+        file,
+        1600,
+        0.82
+      );
 
     showUpload(
       "Membaca foto dengan AI...",
       "Foto sedang disimpan dan dibaca Gemini."
     );
 
-    const response = await fetch(CONFIG.BACKEND_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "text/plain;charset=utf-8"
-      },
-      body: JSON.stringify({
-        action: "upload",
-        image: dataUrl,
-        filename: "BUKU_" + Date.now() + ".jpg"
-      })
-    });
+    const response =
+      await fetch(
+        CONFIG.BACKEND_URL,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify({
+            action: "upload",
+            image: dataUrl,
+            filename:
+              filename ||
+              ("BUKU_" + Date.now() + ".jpg")
+          })
+        }
+      );
 
     if (!response.ok) {
-      throw new Error("HTTP " + response.status);
+      throw new Error(
+        "HTTP " + response.status
+      );
     }
 
-    const result = await response.json();
+    const result =
+      await response.json();
 
     if (!result.success) {
-      throw new Error(result.message || "Upload gagal.");
+
+      throw new Error(
+        result.message ||
+        "Upload gagal."
+      );
     }
 
-    if (!result.aiSuccess || !result.analysis) {
+    if (
+      !result.aiSuccess ||
+      !result.analysis
+    ) {
+
       throw new Error(
         result.aiMessage ||
         "Foto berhasil disimpan, tetapi AI gagal membaca buku."
@@ -193,7 +471,11 @@ async function handlePhotoSelected(event) {
 
     hideUpload();
     console.error(error);
-    alert("Proses foto gagal: " + error.message);
+
+    alert(
+      "Proses foto gagal: " +
+      error.message
+    );
   }
 }
 

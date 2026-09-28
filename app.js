@@ -1,15 +1,29 @@
 let books = [];
+let currentReview = null;
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", function() {
+
   document.getElementById("version").textContent = CONFIG.VERSION;
+
   document.getElementById("searchInput").addEventListener("input", renderBooks);
   document.getElementById("refreshBtn").addEventListener("click", checkBackend);
   document.getElementById("addBookBtn").addEventListener("click", openPhotoPicker);
   document.getElementById("bookPhotoInput").addEventListener("change", handlePhotoSelected);
 
+  document.getElementById("closeReviewBtn").addEventListener("click", closeReview);
+  document.getElementById("cancelReviewBtn").addEventListener("click", closeReview);
+  document.getElementById("saveReviewBtn").addEventListener("click", saveReviewedBook);
+
+  document.getElementById("reviewModal").addEventListener("click", function(event) {
+    if (event.target.id === "reviewModal") {
+      closeReview();
+    }
+  });
+
   hideUpload();
   checkBackend();
 });
+
 
 function openPhotoPicker() {
   const input = document.getElementById("bookPhotoInput");
@@ -17,7 +31,9 @@ function openPhotoPicker() {
   input.click();
 }
 
+
 async function checkBackend() {
+
   const badge = document.getElementById("connectionStatus");
   const info = document.getElementById("resultInfo");
 
@@ -32,12 +48,15 @@ async function checkBackend() {
   }
 
   try {
+
     const response = await fetch(CONFIG.BACKEND_URL, {
       method: "GET",
       cache: "no-store"
     });
 
-    if (!response.ok) throw new Error("HTTP " + response.status);
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
 
     const data = await response.json();
 
@@ -50,7 +69,9 @@ async function checkBackend() {
     } else {
       info.textContent = data.status || "Backend berhasil terhubung.";
     }
+
   } catch (error) {
+
     badge.className = "status-badge offline";
     badge.textContent = "● Belum terhubung";
     info.textContent = "Backend belum dapat diakses.";
@@ -58,7 +79,9 @@ async function checkBackend() {
   }
 }
 
+
 async function handlePhotoSelected(event) {
+
   const input = event.target;
   const file = input.files && input.files.length ? input.files[0] : null;
 
@@ -82,12 +105,19 @@ async function handlePhotoSelected(event) {
     return;
   }
 
-  showUpload("Menyiapkan foto...", "Foto sedang dikompres sebelum dikirim.");
+  showUpload(
+    "Menyiapkan foto...",
+    "Foto sedang dikompres sebelum dikirim."
+  );
 
   try {
+
     const dataUrl = await compressImage(file, 1600, 0.82);
 
-    showUpload("Mengunggah foto...", "Mengirim foto ke Google Drive.");
+    showUpload(
+      "Membaca foto dengan AI...",
+      "Foto sedang disimpan dan dibaca Gemini."
+    );
 
     const response = await fetch(CONFIG.BACKEND_URL, {
       method: "POST",
@@ -95,6 +125,7 @@ async function handlePhotoSelected(event) {
         "Content-Type": "text/plain;charset=utf-8"
       },
       body: JSON.stringify({
+        action: "upload",
         image: dataUrl,
         filename: "BUKU_" + Date.now() + ".jpg"
       })
@@ -110,59 +141,273 @@ async function handlePhotoSelected(event) {
       throw new Error(result.message || "Upload gagal.");
     }
 
-    // Jangan gunakan alert di sini. Browser kadang belum sempat
-    // menggambar perubahan DOM sebelum modal alert tampil.
-    showUpload("✓ Foto berhasil disimpan", "Foto sudah masuk ke folder FOTO KOLEKSI.");
+    if (!result.aiSuccess || !result.analysis) {
+      throw new Error(
+        result.aiMessage ||
+        "Foto berhasil disimpan, tetapi AI gagal membaca buku."
+      );
+    }
 
-    setTimeout(() => {
-      hideUpload();
-    }, 1500);
+    hideUpload();
+
+    showReview(
+      result.analysis,
+      result.fileUrl,
+      result.fileId
+    );
 
   } catch (error) {
+
     hideUpload();
     console.error(error);
-    alert("Upload gagal: " + error.message);
+    alert("Proses foto gagal: " + error.message);
   }
 }
 
+
 function showUpload(title, message) {
+
   const box = document.getElementById("uploadBox");
+
   document.getElementById("uploadTitle").textContent = title;
   document.getElementById("uploadMessage").textContent = message;
+
   box.hidden = false;
   document.getElementById("addBookBtn").disabled = true;
 }
 
+
 function hideUpload() {
+
   const box = document.getElementById("uploadBox");
-  if (box) box.hidden = true;
+  if (box) {
+    box.hidden = true;
+  }
 
   const button = document.getElementById("addBookBtn");
-  if (button) button.disabled = false;
+  if (button) {
+    button.disabled = false;
+  }
 }
 
+
+function showReview(analysis, fileUrl, fileId) {
+
+  currentReview = {
+    judul: analysis.judul || "",
+    penulis: analysis.penulis || "",
+    penerbit: analysis.penerbit || "",
+    tahun_terbit: analysis.tahun_terbit || "",
+    jenis: analysis.jenis || "",
+    kategori: analysis.kategori || "",
+    subkategori: analysis.subkategori || "",
+    confidence: analysis.confidence || "",
+    catatan: analysis.catatan || "",
+    fileUrl: fileUrl || "",
+    fileId: fileId || ""
+  };
+
+  setValue("reviewJudul", currentReview.judul);
+  setValue("reviewPenulis", currentReview.penulis);
+  setValue("reviewPenerbit", currentReview.penerbit);
+  setValue("reviewTahun", currentReview.tahun_terbit);
+  setValue("reviewJenis", currentReview.jenis);
+  setValue("reviewKategori", currentReview.kategori);
+  setValue("reviewSubkategori", currentReview.subkategori);
+  setValue("reviewLokasi", "");
+  setValue("reviewCatatan", currentReview.catatan);
+
+  document.getElementById("reviewConfidence").textContent =
+    currentReview.confidence || "-";
+
+  const message = document.getElementById("saveReviewMessage");
+  message.hidden = true;
+  message.textContent = "";
+  message.className = "save-message";
+
+  const button = document.getElementById("saveReviewBtn");
+  button.disabled = false;
+  button.textContent = "💾 Simpan ke Koleksi";
+
+  const modal = document.getElementById("reviewModal");
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+
+  setTimeout(function() {
+    document.getElementById("reviewJudul").focus();
+  }, 50);
+}
+
+
+function closeReview() {
+
+  const modal = document.getElementById("reviewModal");
+
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  currentReview = null;
+}
+
+
+async function saveReviewedBook() {
+
+  if (!currentReview) {
+    return;
+  }
+
+  const judul = getValue("reviewJudul");
+
+  if (!judul) {
+
+    showSaveMessage("Judul buku wajib diisi.", true, false);
+    document.getElementById("reviewJudul").focus();
+    return;
+  }
+
+  const button = document.getElementById("saveReviewBtn");
+
+  button.disabled = true;
+  button.textContent = "Menyimpan...";
+
+  showSaveMessage(
+    "Menyimpan data buku ke koleksi...",
+    false,
+    false
+  );
+
+  try {
+
+    const payload = {
+      action: "save",
+      judul: judul,
+      penulis: getValue("reviewPenulis"),
+      penerbit: getValue("reviewPenerbit"),
+      tahun_terbit: getValue("reviewTahun"),
+      jenis: getValue("reviewJenis"),
+      kategori: getValue("reviewKategori"),
+      subkategori: getValue("reviewSubkategori"),
+      lokasi_rak: getValue("reviewLokasi"),
+      fileUrl: currentReview.fileUrl,
+      fileId: currentReview.fileId
+    };
+
+    const response = await fetch(CONFIG.BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Data gagal disimpan.");
+    }
+
+    showSaveMessage(
+      "✓ Buku berhasil disimpan ke koleksi.",
+      false,
+      true
+    );
+
+    button.textContent = "✓ Tersimpan";
+
+    setTimeout(function() {
+      closeReview();
+      alert("Alhamdulillah, buku berhasil disimpan ke koleksi.");
+    }, 900);
+
+  } catch (error) {
+
+    console.error(error);
+
+    showSaveMessage(
+      "Gagal menyimpan: " + error.message,
+      true,
+      false
+    );
+
+    button.disabled = false;
+    button.textContent = "💾 Simpan ke Koleksi";
+  }
+}
+
+
+function showSaveMessage(text, isError, isSuccess) {
+
+  const message = document.getElementById("saveReviewMessage");
+
+  message.hidden = false;
+  message.textContent = text;
+
+  message.className =
+    "save-message " +
+    (isError ? "error" : isSuccess ? "success" : "");
+}
+
+
+function setValue(id, value) {
+
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.value = value == null ? "" : String(value);
+  }
+}
+
+
+function getValue(id) {
+
+  const element = document.getElementById(id);
+
+  return element ? element.value.trim() : "";
+}
+
+
 function compressImage(file, maxSide, quality) {
-  return new Promise((resolve, reject) => {
+
+  return new Promise(function(resolve, reject) {
+
     const reader = new FileReader();
 
-    reader.onload = () => {
+    reader.onload = function() {
+
       const img = new Image();
 
-      img.onload = () => {
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      img.onload = function() {
+
+        const scale = Math.min(
+          1,
+          maxSide / Math.max(img.width, img.height)
+        );
+
         const canvas = document.createElement("canvas");
+
         canvas.width = Math.round(img.width * scale);
         canvas.height = Math.round(img.height * scale);
 
         const ctx = canvas.getContext("2d");
+
         if (!ctx) {
           reject(new Error("Browser tidak dapat memproses foto."));
           return;
         }
 
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.drawImage(
+          img,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
 
-        const result = canvas.toDataURL("image/jpeg", quality);
+        const result =
+          canvas.toDataURL("image/jpeg", quality);
 
         if (!result || result.length < 100) {
           reject(new Error("Foto gagal diproses."));
@@ -172,21 +417,39 @@ function compressImage(file, maxSide, quality) {
         resolve(result);
       };
 
-      img.onerror = () => reject(new Error("Foto tidak dapat dibaca."));
+      img.onerror = function() {
+        reject(new Error("Foto tidak dapat dibaca."));
+      };
+
       img.src = reader.result;
     };
 
-    reader.onerror = () => reject(new Error("Gagal membaca foto."));
+    reader.onerror = function() {
+      reject(new Error("Gagal membaca foto."));
+    };
+
     reader.readAsDataURL(file);
   });
 }
 
-function renderBooks() {
-  const grid = document.getElementById("booksGrid");
-  const query = document.getElementById("searchInput").value.trim().toLowerCase();
 
-  const filtered = books.filter(book => {
-    const text = Object.values(book).join(" ").toLowerCase();
+function renderBooks() {
+
+  const grid = document.getElementById("booksGrid");
+
+  const query =
+    document.getElementById("searchInput")
+      .value
+      .trim()
+      .toLowerCase();
+
+  const filtered = books.filter(function(book) {
+
+    const text =
+      Object.values(book)
+        .join(" ")
+        .toLowerCase();
+
     return text.includes(query);
   });
 
@@ -194,41 +457,73 @@ function renderBooks() {
     filtered.length + " koleksi ditemukan";
 
   if (!filtered.length) {
-    grid.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-icon">🔎</div>
-        <h3>Belum ada koleksi</h3>
-        <p>Belum ada data buku yang ditampilkan.</p>
-      </div>
-    `;
+
+    grid.innerHTML =
+      '<div class="empty-state">' +
+        '<div class="empty-icon">🔎</div>' +
+        '<h3>Belum ada koleksi</h3>' +
+        '<p>Belum ada data buku yang ditampilkan.</p>' +
+      '</div>';
+
     return;
   }
 
-  grid.innerHTML = filtered.map(book => {
-    const title = book.judul || book.title || book.nama || "Tanpa judul";
-    const author = book.penulis || book.author || "-";
-    const code = book.kode || book.code || "-";
-    const image = book.foto || book.image || book.url || "";
+  grid.innerHTML = "";
 
-    return `
-      <article class="book-card">
-        <div class="book-cover">
-          ${image ? `<img src="${escapeHtml(image)}" alt="" style="width:100%;height:100%;object-fit:cover">` : "📖"}
-        </div>
-        <div class="book-info">
-          <h3 class="book-title">${escapeHtml(title)}</h3>
-          <p class="book-meta">Penulis: ${escapeHtml(author)}<br>Kode: ${escapeHtml(code)}</p>
-        </div>
-      </article>
-    `;
-  }).join("");
-}
+  filtered.forEach(function(book) {
 
-function escapeHtml(value) {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    const title =
+      book.judul ||
+      book.title ||
+      book.nama ||
+      "Tanpa judul";
+
+    const author =
+      book.penulis ||
+      book.author ||
+      "-";
+
+    const code =
+      book.kode_buku ||
+      book.kode ||
+      book.code ||
+      "-";
+
+    const card =
+      document.createElement("article");
+
+    card.className = "book-card";
+
+    const cover =
+      document.createElement("div");
+
+    cover.className = "book-cover";
+    cover.textContent = "📖";
+
+    const info =
+      document.createElement("div");
+
+    info.className = "book-info";
+
+    const titleEl =
+      document.createElement("h3");
+
+    titleEl.className = "book-title";
+    titleEl.textContent = title;
+
+    const meta =
+      document.createElement("p");
+
+    meta.className = "book-meta";
+    meta.textContent =
+      "Penulis: " + author + "\nKode: " + code;
+
+    info.appendChild(titleEl);
+    info.appendChild(meta);
+
+    card.appendChild(cover);
+    card.appendChild(info);
+
+    grid.appendChild(card);
+  });
 }

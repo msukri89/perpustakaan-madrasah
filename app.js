@@ -1,5 +1,6 @@
 let books = [];
 let currentReview = null;
+let currentBook = null;
 
 document.addEventListener("DOMContentLoaded", function() {
 
@@ -16,10 +17,20 @@ document.addEventListener("DOMContentLoaded", function() {
 
   document.getElementById("closeDetailBtn").addEventListener("click", closeDetail);
   document.getElementById("closeDetailFooterBtn").addEventListener("click", closeDetail);
+  document.getElementById("editBookBtn").addEventListener("click", openEditBook);
+  document.getElementById("closeEditBtn").addEventListener("click", closeEdit);
+  document.getElementById("cancelEditBtn").addEventListener("click", closeEdit);
+  document.getElementById("saveEditBtn").addEventListener("click", saveEditedBook);
 
   document.getElementById("detailModal").addEventListener("click", function(event) {
     if (event.target.id === "detailModal") {
       closeDetail();
+    }
+  });
+
+  document.getElementById("editModal").addEventListener("click", function(event) {
+    if (event.target.id === "editModal") {
+      closeEdit();
     }
   });
 
@@ -269,6 +280,8 @@ function closeReview() {
 
 function showDetail(book) {
 
+  currentBook = book;
+
   setText("detailTitle", book.judul || "Detail Buku");
   setText("detailBookTitle", book.judul || "Tanpa judul");
   setText("detailBookAuthor", book.penulis ? "Penulis: " + book.penulis : "Penulis: -");
@@ -319,9 +332,157 @@ function closeDetail() {
 
   modal.hidden = true;
 
+  if (
+    document.getElementById("reviewModal").hidden &&
+    document.getElementById("editModal").hidden
+  ) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+
+function openEditBook() {
+
+  if (!currentBook) {
+    return;
+  }
+
+  setValue("editJudul", currentBook.judul);
+  setValue("editPenulis", currentBook.penulis);
+  setValue("editPenerbit", currentBook.penerbit);
+  setValue("editTahun", currentBook.tahun_terbit);
+  setValue("editJenis", currentBook.jenis);
+  setValue("editKategori", currentBook.kategori);
+  setValue("editSubkategori", currentBook.subkategori);
+  setValue("editLokasi", currentBook.lokasi_rak);
+
+  const message = document.getElementById("editMessage");
+  message.hidden = true;
+  message.textContent = "";
+  message.className = "save-message";
+
+  document.getElementById("saveEditBtn").disabled = false;
+  document.getElementById("saveEditBtn").textContent = "💾 Simpan Perubahan";
+
+  document.getElementById("detailModal").hidden = true;
+  document.getElementById("editModal").hidden = false;
+  document.body.classList.add("modal-open");
+
+  setTimeout(function() {
+    document.getElementById("editJudul").focus();
+  }, 50);
+}
+
+
+function closeEdit() {
+
+  document.getElementById("editModal").hidden = true;
+
   if (document.getElementById("reviewModal").hidden) {
     document.body.classList.remove("modal-open");
   }
+}
+
+
+async function saveEditedBook() {
+
+  if (!currentBook || !currentBook.id) {
+    return;
+  }
+
+  const judul = getValue("editJudul");
+
+  if (!judul) {
+    showEditMessage("Judul buku wajib diisi.", true, false);
+    document.getElementById("editJudul").focus();
+    return;
+  }
+
+  const button = document.getElementById("saveEditBtn");
+
+  button.disabled = true;
+  button.textContent = "Menyimpan...";
+
+  showEditMessage(
+    "Menyimpan perubahan ke koleksi...",
+    false,
+    false
+  );
+
+  try {
+
+    const payload = {
+      action: "update",
+      id: currentBook.id,
+      judul: judul,
+      penulis: getValue("editPenulis"),
+      penerbit: getValue("editPenerbit"),
+      tahun_terbit: getValue("editTahun"),
+      jenis: getValue("editJenis"),
+      kategori: getValue("editKategori"),
+      subkategori: getValue("editSubkategori"),
+      lokasi_rak: getValue("editLokasi")
+    };
+
+    const response = await fetch(CONFIG.BACKEND_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "text/plain;charset=utf-8"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error("HTTP " + response.status);
+    }
+
+    const result = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.message || "Perubahan gagal disimpan.");
+    }
+
+    showEditMessage(
+      "✓ Perubahan berhasil disimpan.",
+      false,
+      true
+    );
+
+    button.textContent = "✓ Tersimpan";
+
+    setTimeout(async function() {
+      closeEdit();
+      currentBook = null;
+      await checkBackend();
+      alert("Alhamdulillah, perubahan buku berhasil disimpan.");
+    }, 800);
+
+  } catch (error) {
+
+    console.error(error);
+
+    showEditMessage(
+      "Gagal menyimpan: " + error.message,
+      true,
+      false
+    );
+
+    button.disabled = false;
+    button.textContent = "💾 Simpan Perubahan";
+  }
+}
+
+
+function showEditMessage(text, isError, isSuccess) {
+
+  const message = document.getElementById("editMessage");
+
+  message.hidden = false;
+  message.textContent = text;
+
+  message.className =
+    "save-message " +
+    (isError ? "error" : isSuccess ? "success" : "");
 }
 
 

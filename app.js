@@ -95,6 +95,7 @@ async function checkBackend() {
 
     books = Array.isArray(data.books) ? data.books : [];
 
+    updateDashboardStats();
     updateFilterOptions();
 
     badge.className = "status-badge online";
@@ -681,6 +682,50 @@ function compressImage(file, maxSide, quality) {
 
     reader.readAsDataURL(file);
   });
+}
+
+
+function updateDashboardStats() {
+
+  const categories = new Set();
+  const types = new Set();
+  const racks = new Set();
+
+  books.forEach(function(book) {
+
+    const category =
+      String(book.kategori || "").trim();
+
+    const type =
+      String(book.jenis || "").trim();
+
+    const rack =
+      String(book.lokasi_rak || "").trim();
+
+    if (category) {
+      categories.add(category);
+    }
+
+    if (type) {
+      types.add(type);
+    }
+
+    if (rack) {
+      racks.add(rack);
+    }
+  });
+
+  document.getElementById("statTotal").textContent =
+    books.length;
+
+  document.getElementById("statCategories").textContent =
+    categories.size;
+
+  document.getElementById("statTypes").textContent =
+    types.size;
+
+  document.getElementById("statRacks").textContent =
+    racks.size;
 }
 
 

@@ -14,6 +14,15 @@ document.addEventListener("DOMContentLoaded", function() {
   document.getElementById("cancelReviewBtn").addEventListener("click", closeReview);
   document.getElementById("saveReviewBtn").addEventListener("click", saveReviewedBook);
 
+  document.getElementById("closeDetailBtn").addEventListener("click", closeDetail);
+  document.getElementById("closeDetailFooterBtn").addEventListener("click", closeDetail);
+
+  document.getElementById("detailModal").addEventListener("click", function(event) {
+    if (event.target.id === "detailModal") {
+      closeDetail();
+    }
+  });
+
   document.getElementById("reviewModal").addEventListener("click", function(event) {
     if (event.target.id === "reviewModal") {
       closeReview();
@@ -255,6 +264,73 @@ function closeReview() {
   modal.hidden = true;
   document.body.classList.remove("modal-open");
   currentReview = null;
+}
+
+
+function showDetail(book) {
+
+  setText("detailTitle", book.judul || "Detail Buku");
+  setText("detailBookTitle", book.judul || "Tanpa judul");
+  setText("detailBookAuthor", book.penulis ? "Penulis: " + book.penulis : "Penulis: -");
+  setText("detailBookCode", book.kode_buku || "-");
+  setText("detailJenis", book.jenis || "-");
+  setText("detailKategori", book.kategori || "-");
+  setText("detailSubkategori", book.subkategori || "-");
+  setText("detailPenerbit", book.penerbit || "-");
+  setText("detailTahun", book.tahun_terbit || "-");
+  setText("detailLokasi", book.lokasi_rak || "-");
+  setText("detailTanggal", book.tanggal_input || "-");
+
+  const cover = document.getElementById("detailCover");
+  cover.innerHTML = "";
+  cover.className = "detail-cover";
+
+  if (book.fileId) {
+    const image = document.createElement("img");
+
+    image.src =
+      "https://drive.google.com/thumbnail?id=" +
+      encodeURIComponent(book.fileId) +
+      "&sz=w800";
+
+    image.alt = "Sampul " + (book.judul || "buku");
+    image.loading = "eager";
+
+    image.onerror = function() {
+      cover.innerHTML = "📖";
+      cover.classList.add("cover-fallback");
+    };
+
+    cover.appendChild(image);
+
+  } else {
+    cover.textContent = "📖";
+    cover.classList.add("cover-fallback");
+  }
+
+  const modal = document.getElementById("detailModal");
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+
+function closeDetail() {
+  const modal = document.getElementById("detailModal");
+
+  modal.hidden = true;
+
+  if (document.getElementById("reviewModal").hidden) {
+    document.body.classList.remove("modal-open");
+  }
+}
+
+
+function setText(id, value) {
+  const element = document.getElementById(id);
+
+  if (element) {
+    element.textContent = value == null ? "" : String(value);
+  }
 }
 
 
@@ -575,6 +651,20 @@ function renderBooks() {
       document.createElement("article");
 
     card.className = "book-card";
+    card.setAttribute("role", "button");
+    card.setAttribute("tabindex", "0");
+    card.setAttribute("aria-label", "Lihat detail " + title);
+
+    card.addEventListener("click", function() {
+      showDetail(book);
+    });
+
+    card.addEventListener("keydown", function(event) {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        showDetail(book);
+      }
+    });
 
     card.appendChild(cover);
     card.appendChild(info);

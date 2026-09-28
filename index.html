@@ -397,49 +397,7 @@
     </div>
   </div>
 
-  <script>
-    /*
-     * OpenCV dipakai untuk mendeteksi empat sisi buku
-     * dan melakukan perspective crop seperti scanner.
-     * Library dimuat saat dibutuhkan agar halaman tetap ringan.
-     */
-    window.cvReady = new Promise(function(resolve, reject) {
-
-      const script = document.createElement("script");
-
-      script.src =
-        "https://cdn.jsdelivr.net/npm/opencv.js@1.2.1/opencv.js";
-
-      script.async = true;
-
-      script.onload = function() {
-
-        if (
-          window.cv &&
-          typeof window.cv.imread === "function"
-        ) {
-          resolve(window.cv);
-          return;
-        }
-
-        window.cv.onRuntimeInitialized = function() {
-          resolve(window.cv);
-        };
-      };
-
-      script.onerror = function() {
-        reject(
-          new Error(
-            "Library pemindai buku tidak dapat dimuat."
-          )
-        );
-      };
-
-      document.head.appendChild(script);
-    });
-  </script>
-
-  <script src="config.js?v=20260928-3"></script>
-  <script src="app.js?v=20260928-3"></script>
+  <script src="config.js?v=20260928-4"></script>
+  <script src="app.js?v=20260928-4"></script>
 </body>
 </html>

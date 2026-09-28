@@ -204,81 +204,27 @@ async function captureScannerPhoto() {
     return;
   }
 
-  const canvas =
-    document.createElement("canvas");
+  const canvas = document.createElement("canvas");
 
-  /*
-   * Crop mengikuti bingkai scanner.
-   * Bingkai dibuat dengan rasio 3:4 agar
-   * cocok untuk sampul buku.
-   */
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
 
-  const sourceWidth =
-    video.videoWidth;
-
-  const sourceHeight =
-    video.videoHeight;
-
-  const targetRatio =
-    3 / 4;
-
-  let cropWidth =
-    sourceWidth * 0.72;
-
-  let cropHeight =
-    cropWidth / targetRatio;
-
-  if (cropHeight > sourceHeight * 0.86) {
-
-    cropHeight =
-      sourceHeight * 0.86;
-
-    cropWidth =
-      cropHeight * targetRatio;
-  }
-
-  const cropX =
-    (sourceWidth - cropWidth) / 2;
-
-  const cropY =
-    (sourceHeight - cropHeight) / 2;
-
-  const outputWidth =
-    Math.min(
-      1600,
-      Math.round(cropWidth)
-    );
-
-  const outputHeight =
-    Math.round(
-      outputWidth / targetRatio
-    );
-
-  canvas.width = outputWidth;
-  canvas.height = outputHeight;
-
-  const context =
-    canvas.getContext("2d", {
-      alpha: false
-    });
+  const context = canvas.getContext("2d", {
+    alpha: false
+  });
 
   context.drawImage(
     video,
-    cropX,
-    cropY,
-    cropWidth,
-    cropHeight,
     0,
     0,
-    outputWidth,
-    outputHeight
+    canvas.width,
+    canvas.height
   );
 
   canvas.toBlob(
     async function(blob) {
 
       if (!blob) {
-
         alert("Foto tidak berhasil dibuat.");
         return;
       }
@@ -292,7 +238,7 @@ async function captureScannerPhoto() {
 
     },
     "image/jpeg",
-    0.88
+    0.90
   );
 }
 
@@ -400,9 +346,17 @@ async function processPhotoFile(file, filename) {
 
   try {
 
+    showUpload(
+      "Mendeteksi batas buku...",
+      "Mencari tepi sampul agar foto otomatis dipotong rapi."
+    );
+
+    const preparedFile =
+      await smartCropBookImage(file);
+
     const dataUrl =
       await compressImage(
-        file,
+        preparedFile,
         1600,
         0.82
       );
@@ -900,6 +854,437 @@ function getValue(id) {
   const element = document.getElementById(id);
 
   return element ? element.value.trim() : "";
+}
+
+
+async function smartCropBookImage(file) {
+
+  try {
+
+    if (!window.cvReady) {
+      return file;
+    }
+
+    const cv = await window.cvReady;
+
+    if (!cv || typeof cv.imread !== "function") {
+      return file;
+    }
+
+    const sourceCanvas = await imageFileToCanvas(file, 1400);
+
+    const sourceMat = cv.imread(sourceCanvas);
+    const gray = new cv.Mat();
+    const blurred = new cv.Mat();
+    const edges = new cv.Mat();
+    const kernel = cv.Mat.ones(5, 5, cv.CV_8U);
+    const closed = new cv.Mat();
+    const contours = new cv.MatVector();
+    const hierarchy = new cv.Mat();
+
+    try {
+
+      cv.cvtColor(sourceMat, gray, cv.COLOR_RGBA2GRAY);
+
+      cv.GaussianBlur(
+        gray,
+        blurred,
+        new cv.Size(5, 5),
+        0
+      );
+
+      cv.Canny(blurred, edges, 60, 180);
+
+      cv.morphologyEx(
+        edges,
+        closed,
+        cv.MORPH_CLOSE,
+        kernel
+      );
+
+      cv.findContours(
+        closed,
+        contours,
+        hierarchy,
+        cv.RETR_LIST,
+        cv.CHAIN_APPROX_SIMPLE
+      );
+
+      const imageArea =
+        sourceMat.cols * sourceMat.rows;
+
+      let best = null;
+
+      for (let i = 0; i < contours.size(); i++) {
+
+        const contour = contours.get(i);
+
+        try {
+
+          const area = Math.abs(
+            cv.contourArea(contour)
+          );
+
+          if (area < imageArea * 0.12) {
+            continue;
+          }
+
+          const perimeter =
+            cv.arcLength(contour, true);
+
+          const approx = new cv.Mat();
+
+          try {
+
+            cv.approxPolyDP(
+              contour,
+              approx,
+              0.035 * perimeter,
+              true
+            );
+
+            if (
+              approx.rows !== 4 ||
+              !cv.isContourConvex(approx)
+            ) {
+              continue;
+            }
+
+            const points = [];
+
+            for (let p = 0; p < 4; p++) {
+              points.push({
+                x: approx.data32S[p * 2],
+                y: approx.data32S[p * 2 + 1]
+              });
+            }
+
+            const ordered =
+              orderBookCorners(points);
+
+            const width =
+              Math.max(
+                distance2D(ordered[0], ordered[1]),
+                distance2D(ordered[3], ordered[2])
+              );
+
+            const height =
+              Math.max(
+                distance2D(ordered[0], ordered[3]),
+                distance2D(ordered[1], ordered[2])
+              );
+
+            if (width < 180 || height < 220) {
+              continue;
+            }
+
+            const ratio = width / height;
+
+            if (ratio < 0.38 || ratio > 1.65) {
+              continue;
+            }
+
+            const centerX =
+              ordered.reduce(
+                (sum, point) => sum + point.x,
+                0
+              ) / 4;
+
+            const centerY =
+              ordered.reduce(
+                (sum, point) => sum + point.y,
+                0
+              ) / 4;
+
+            const imageCenterX = sourceMat.cols / 2;
+            const imageCenterY = sourceMat.rows / 2;
+
+            const centerDistance =
+              Math.hypot(
+                centerX - imageCenterX,
+                centerY - imageCenterY
+              );
+
+            const maxCenterDistance =
+              Math.hypot(
+                imageCenterX,
+                imageCenterY
+              );
+
+            const centerScore =
+              1 -
+              Math.min(
+                1,
+                centerDistance / maxCenterDistance
+              );
+
+            const areaScore = area / imageArea;
+
+            const score =
+              areaScore *
+              (0.70 + centerScore * 0.30);
+
+            if (!best || score > best.score) {
+              best = {
+                points: ordered,
+                score: score,
+                area: area
+              };
+            }
+
+          } finally {
+            approx.delete();
+          }
+
+        } finally {
+          contour.delete();
+        }
+      }
+
+      if (!best || best.area < imageArea * 0.18) {
+        return file;
+      }
+
+      return await warpBookImage(
+        sourceCanvas,
+        best.points
+      );
+
+    } finally {
+
+      sourceMat.delete();
+      gray.delete();
+      blurred.delete();
+      edges.delete();
+      kernel.delete();
+      closed.delete();
+      contours.delete();
+      hierarchy.delete();
+    }
+
+  } catch (error) {
+
+    console.warn("Auto-crop dilewati:", error);
+    return file;
+  }
+}
+
+
+function imageFileToCanvas(file, maxSide) {
+
+  return new Promise(function(resolve, reject) {
+
+    const reader = new FileReader();
+
+    reader.onload = function() {
+
+      const img = new Image();
+
+      img.onload = function() {
+
+        const scale =
+          Math.min(
+            1,
+            maxSide / Math.max(img.width, img.height)
+          );
+
+        const canvas = document.createElement("canvas");
+
+        canvas.width =
+          Math.max(1, Math.round(img.width * scale));
+
+        canvas.height =
+          Math.max(1, Math.round(img.height * scale));
+
+        const context =
+          canvas.getContext("2d", { alpha: false });
+
+        context.drawImage(
+          img,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        resolve(canvas);
+      };
+
+      img.onerror = function() {
+        reject(new Error("Foto tidak dapat dibaca."));
+      };
+
+      img.src = reader.result;
+    };
+
+    reader.onerror = function() {
+      reject(new Error("Gagal membaca foto."));
+    };
+
+    reader.readAsDataURL(file);
+  });
+}
+
+
+function distance2D(a, b) {
+
+  return Math.hypot(
+    a.x - b.x,
+    a.y - b.y
+  );
+}
+
+
+function orderBookCorners(points) {
+
+  const sums =
+    points.map(point => point.x + point.y);
+
+  const diffs =
+    points.map(point => point.x - point.y);
+
+  const topLeft =
+    points[sums.indexOf(Math.min(...sums))];
+
+  const bottomRight =
+    points[sums.indexOf(Math.max(...sums))];
+
+  const topRight =
+    points[diffs.indexOf(Math.max(...diffs))];
+
+  const bottomLeft =
+    points[diffs.indexOf(Math.min(...diffs))];
+
+  return [
+    topLeft,
+    topRight,
+    bottomRight,
+    bottomLeft
+  ];
+}
+
+
+function warpBookImage(sourceCanvas, points) {
+
+  return new Promise(function(resolve, reject) {
+
+    try {
+
+      const cv = window.cv;
+      const sourceMat = cv.imread(sourceCanvas);
+
+      const srcPoints =
+        cv.matFromArray(
+          4,
+          1,
+          cv.CV_32FC2,
+          [
+            points[0].x, points[0].y,
+            points[1].x, points[1].y,
+            points[2].x, points[2].y,
+            points[3].x, points[3].y
+          ]
+        );
+
+      const width =
+        Math.max(
+          distance2D(points[0], points[1]),
+          distance2D(points[3], points[2])
+        );
+
+      const height =
+        Math.max(
+          distance2D(points[0], points[3]),
+          distance2D(points[1], points[2])
+        );
+
+      const outputWidth =
+        Math.min(
+          1600,
+          Math.max(500, Math.round(width))
+        );
+
+      const outputHeight =
+        Math.min(
+          2200,
+          Math.max(
+            700,
+            Math.round(height * (outputWidth / width))
+          )
+        );
+
+      const dstPoints =
+        cv.matFromArray(
+          4,
+          1,
+          cv.CV_32FC2,
+          [
+            0, 0,
+            outputWidth - 1, 0,
+            outputWidth - 1, outputHeight - 1,
+            0, outputHeight - 1
+          ]
+        );
+
+      const transform =
+        cv.getPerspectiveTransform(
+          srcPoints,
+          dstPoints
+        );
+
+      const warped = new cv.Mat();
+
+      cv.warpPerspective(
+        sourceMat,
+        warped,
+        transform,
+        new cv.Size(outputWidth, outputHeight),
+        cv.INTER_LINEAR,
+        cv.BORDER_REPLICATE
+      );
+
+      const outputCanvas =
+        document.createElement("canvas");
+
+      outputCanvas.width = outputWidth;
+      outputCanvas.height = outputHeight;
+
+      cv.imshow(outputCanvas, warped);
+
+      sourceMat.delete();
+      srcPoints.delete();
+      dstPoints.delete();
+      transform.delete();
+      warped.delete();
+
+      outputCanvas.toBlob(
+        function(blob) {
+
+          if (!blob) {
+            reject(
+              new Error(
+                "Hasil auto-crop tidak dapat dibuat."
+              )
+            );
+            return;
+          }
+
+          resolve(
+            new File(
+              [blob],
+              "BUKU_CROPPED_" + Date.now() + ".jpg",
+              { type: "image/jpeg" }
+            )
+          );
+        },
+        "image/jpeg",
+        0.92
+      );
+
+    } catch (error) {
+      reject(error);
+    }
+  });
 }
 
 

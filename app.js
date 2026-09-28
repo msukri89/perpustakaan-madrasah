@@ -32,13 +32,19 @@ function openPhotoPicker() {
 }
 
 
+function getListUrl() {
+  const separator = CONFIG.BACKEND_URL.includes("?") ? "&" : "?";
+  return CONFIG.BACKEND_URL + separator + "action=list";
+}
+
+
 async function checkBackend() {
 
   const badge = document.getElementById("connectionStatus");
   const info = document.getElementById("resultInfo");
 
   badge.className = "status-badge checking";
-  badge.textContent = "Memeriksa koneksi...";
+  badge.textContent = "Memeriksa koleksi...";
 
   if (!CONFIG.BACKEND_URL || CONFIG.BACKEND_URL.includes("PASTE_URL")) {
     badge.className = "status-badge offline";
@@ -49,7 +55,7 @@ async function checkBackend() {
 
   try {
 
-    const response = await fetch(CONFIG.BACKEND_URL, {
+    const response = await fetch(getListUrl(), {
       method: "GET",
       cache: "no-store"
     });
@@ -60,21 +66,22 @@ async function checkBackend() {
 
     const data = await response.json();
 
+    if (!data.success) {
+      throw new Error(data.message || "Backend gagal membaca koleksi.");
+    }
+
+    books = Array.isArray(data.books) ? data.books : [];
+
     badge.className = "status-badge online";
     badge.textContent = "● Backend aktif";
 
-    if (Array.isArray(data)) {
-      books = data;
-      renderBooks();
-    } else {
-      info.textContent = data.status || "Backend berhasil terhubung.";
-    }
+    renderBooks();
 
   } catch (error) {
 
     badge.className = "status-badge offline";
     badge.textContent = "● Belum terhubung";
-    info.textContent = "Backend belum dapat diakses.";
+    info.textContent = "Backend belum dapat membaca koleksi.";
     console.error(error);
   }
 }
@@ -180,11 +187,13 @@ function showUpload(title, message) {
 function hideUpload() {
 
   const box = document.getElementById("uploadBox");
+
   if (box) {
     box.hidden = true;
   }
 
   const button = document.getElementById("addBookBtn");
+
   if (button) {
     button.disabled = false;
   }
@@ -258,7 +267,6 @@ async function saveReviewedBook() {
   const judul = getValue("reviewJudul");
 
   if (!judul) {
-
     showSaveMessage("Judul buku wajib diisi.", true, false);
     document.getElementById("reviewJudul").focus();
     return;
@@ -317,8 +325,9 @@ async function saveReviewedBook() {
 
     button.textContent = "✓ Tersimpan";
 
-    setTimeout(function() {
+    setTimeout(async function() {
       closeReview();
+      await checkBackend();
       alert("Alhamdulillah, buku berhasil disimpan ke koleksi.");
     }, 900);
 
@@ -460,9 +469,9 @@ function renderBooks() {
 
     grid.innerHTML =
       '<div class="empty-state">' +
-        '<div class="empty-icon">🔎</div>' +
+        '<div class="empty-icon">📚</div>' +
         '<h3>Belum ada koleksi</h3>' +
-        '<p>Belum ada data buku yang ditampilkan.</p>' +
+        '<p>Belum ada data buku yang sesuai dengan pencarian.</p>' +
       '</div>';
 
     return;
@@ -474,31 +483,57 @@ function renderBooks() {
 
     const title =
       book.judul ||
-      book.title ||
-      book.nama ||
       "Tanpa judul";
 
     const author =
       book.penulis ||
-      book.author ||
       "-";
 
     const code =
       book.kode_buku ||
-      book.kode ||
-      book.code ||
       "-";
 
-    const card =
-      document.createElement("article");
+    const category =
+      [book.kategori, book.subkategori]
+        .filter(Boolean)
+        .join(" · ") || "-";
 
-    card.className = "book-card";
+    const type =
+      book.jenis ||
+      "";
 
     const cover =
       document.createElement("div");
 
     cover.className = "book-cover";
-    cover.textContent = "📖";
+
+    if (book.fileId) {
+
+      const image =
+        document.createElement("img");
+
+      image.src =
+        "https://drive.google.com/thumbnail?id=" +
+        encodeURIComponent(book.fileId) +
+        "&sz=w600";
+
+      image.alt =
+        "Sampul " + title;
+
+      image.loading = "lazy";
+
+      image.onerror = function() {
+        cover.innerHTML = "📖";
+        cover.classList.add("cover-fallback");
+      };
+
+      cover.appendChild(image);
+
+    } else {
+
+      cover.textContent = "📖";
+      cover.classList.add("cover-fallback");
+    }
 
     const info =
       document.createElement("div");
@@ -511,15 +546,35 @@ function renderBooks() {
     titleEl.className = "book-title";
     titleEl.textContent = title;
 
+    const authorEl =
+      document.createElement("p");
+
+    authorEl.className = "book-author";
+    authorEl.textContent =
+      "Penulis: " + author;
+
     const meta =
       document.createElement("p");
 
     meta.className = "book-meta";
+
+    const metaParts = [
+      code,
+      type,
+      category
+    ].filter(Boolean);
+
     meta.textContent =
-      "Penulis: " + author + "\nKode: " + code;
+      metaParts.join(" · ");
 
     info.appendChild(titleEl);
+    info.appendChild(authorEl);
     info.appendChild(meta);
+
+    const card =
+      document.createElement("article");
+
+    card.className = "book-card";
 
     card.appendChild(cover);
     card.appendChild(info);

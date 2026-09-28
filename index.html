@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f766e">
+  <title>Perpustakaan Madrasah</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-icon">📚</div>
+      <div>
+        <h1>Perpustakaan Madrasah</h1>
+        <p>Katalog Koleksi Buku</p>
+      </div>
+    </div>
+    <div id="connectionStatus" class="status-badge checking">Memeriksa koneksi...</div>
+  </header>
+
+  <main class="container">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">KOLEKSI PERPUSTAKAAN</span>
+        <h2>Temukan buku yang Anda cari.</h2>
+        <p>Kelola dan telusuri koleksi buku madrasah dengan lebih mudah.</p>
+      </div>
+      <div class="hero-book">📖</div>
+    </section>
+
+    <section class="toolbar">
+      <div class="search-wrap">
+        <span>⌕</span>
+        <input id="searchInput" type="search" placeholder="Cari judul, penulis, atau kode buku..." autocomplete="off">
+      </div>
+      <button id="refreshBtn" class="btn secondary">↻ Muat ulang</button>
+    </section>
+
+    <section class="section-heading">
+      <div>
+        <h3>Koleksi Buku</h3>
+        <p id="resultInfo">Menunggu data dari backend...</p>
+      </div>
+    </section>
+
+    <section id="booksGrid" class="books-grid">
+      <div class="empty-state">
+        <div class="empty-icon">📚</div>
+        <h3>Belum ada data ditampilkan</h3>
+        <p>Frontend sudah siap. Kita lanjutkan penyambungan data Google Sheets pada tahap berikutnya.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <span>Perpustakaan Madrasah</span>
+    <span>Versi <span id="version"></span></span>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

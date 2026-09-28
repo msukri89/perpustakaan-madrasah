@@ -388,7 +388,7 @@ async function processPhotoFile(file, filename) {
 
   showUpload(
     "Menyiapkan foto...",
-    "Foto sedang dikompres sebelum dikirim."
+    "Foto sedang diringankan untuk katalog."
   );
 
   try {
@@ -396,13 +396,13 @@ async function processPhotoFile(file, filename) {
     const dataUrl =
       await compressImage(
         file,
-        1600,
-        0.82
+        1200,
+        0.78
       );
 
     showUpload(
       "Membaca foto dengan AI...",
-      "Foto sedang disimpan dan dibaca Gemini."
+      "Foto ringan sedang disimpan dan dibaca Gemini."
     );
 
     const response =
@@ -914,7 +914,9 @@ async function openPhotoEditor(blob, filename) {
 
     URL.revokeObjectURL(objectUrl);
 
-    const sourceMaxSide = 1800;
+    // Resolusi kerja dibatasi agar HP tidak terbebani
+    // saat memproses foto kamera beresolusi tinggi.
+    const sourceMaxSide = 1600;
 
     const sourceScale =
       Math.min(

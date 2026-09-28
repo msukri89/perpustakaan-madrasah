@@ -224,6 +224,91 @@
 
       <div class="detail-footer">
         <button id="closeDetailFooterBtn" class="btn secondary" type="button">Tutup</button>
+        <button id="editBookBtn" class="btn primary" type="button">✏️ Edit Buku</button>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="editModal" class="modal-backdrop" hidden>
+    <div class="review-modal edit-modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+
+      <div class="review-header">
+        <div>
+          <span class="eyebrow modal-eyebrow">EDIT KOLEKSI</span>
+          <h2 id="editTitle">Edit Data Buku</h2>
+          <p>Perubahan akan disimpan ke Google Sheets.</p>
+        </div>
+
+        <button id="closeEditBtn" class="icon-btn" type="button" aria-label="Tutup">×</button>
+      </div>
+
+      <div class="review-body">
+
+        <div class="edit-locked-note">
+          <strong>🔒 Data tetap</strong>
+          <p>ID, Kode Buku, dan Foto tidak diubah pada proses edit.</p>
+        </div>
+
+        <div class="form-grid">
+
+          <label class="field field-full">
+            <span>Judul Buku *</span>
+            <input id="editJudul" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Penulis</span>
+            <input id="editPenulis" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Penerbit</span>
+            <input id="editPenerbit" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Tahun Terbit</span>
+            <input id="editTahun" type="text" inputmode="numeric" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Jenis</span>
+            <select id="editJenis">
+              <option value="">Pilih jenis</option>
+              <option value="Buku Pelajaran">Buku Pelajaran</option>
+              <option value="Buku Keagamaan">Buku Keagamaan</option>
+              <option value="Buku Referensi">Buku Referensi</option>
+              <option value="Novel">Novel</option>
+              <option value="Cerpen">Cerpen</option>
+              <option value="Majalah">Majalah</option>
+              <option value="Lainnya">Lainnya</option>
+            </select>
+          </label>
+
+          <label class="field">
+            <span>Kategori</span>
+            <input id="editKategori" type="text" autocomplete="off">
+          </label>
+
+          <label class="field">
+            <span>Subkategori</span>
+            <input id="editSubkategori" type="text" autocomplete="off">
+          </label>
+
+          <label class="field field-full">
+            <span>Lokasi / Rak</span>
+            <input id="editLokasi" type="text" placeholder="Contoh: Rak A-01" autocomplete="off">
+          </label>
+
+        </div>
+
+        <div id="editMessage" class="save-message" hidden></div>
+      </div>
+
+      <div class="review-footer">
+        <button id="cancelEditBtn" class="btn secondary" type="button">Batal</button>
+        <button id="saveEditBtn" class="btn primary" type="button">💾 Simpan Perubahan</button>
       </div>
 
     </div>
